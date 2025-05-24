@@ -145,6 +145,12 @@ app_license = "mit"
 # 	}
 # }
 
+doc_events = {
+    "OTP Verification": {
+        "before_validate": "otp_login.otp_login.doctype.otp_verification.otp_verification.before_insert"
+    }
+}
+
 # Scheduled Tasks
 # ---------------
 
