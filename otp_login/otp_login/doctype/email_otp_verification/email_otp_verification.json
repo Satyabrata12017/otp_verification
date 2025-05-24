@@ -1,15 +1,14 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-05-19 09:08:59.569211",
+ "creation": "2025-05-24 13:22:02.189885",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "email",
   "otp",
-  "expires_on",
-  "is_verified",
-  "used_for"
+  "expiry",
+  "is_verified"
  ],
  "fields": [
   {
@@ -23,29 +22,24 @@
    "label": "Otp"
   },
   {
-   "fieldname": "expires_on",
+   "fieldname": "expiry",
    "fieldtype": "Datetime",
-   "label": "Expires On"
+   "label": "Expiry"
   },
   {
    "default": "0",
    "fieldname": "is_verified",
    "fieldtype": "Check",
-   "label": "Is Verified"
-  },
-  {
-   "fieldname": "used_for",
-   "fieldtype": "Data",
-   "label": "Used For"
+   "label": "is Verified"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-24 13:54:14.391988",
+ "modified": "2025-05-24 13:23:03.561190",
  "modified_by": "Administrator",
  "module": "Otp Login",
- "name": "OTP Verification",
+ "name": "Email OTP Verification",
  "owner": "Administrator",
  "permissions": [
   {

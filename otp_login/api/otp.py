@@ -16,6 +16,7 @@ def send_otp(email):
     doc = frappe.new_doc("OTP Verification")
     doc.email = email
     doc.otp = otp
+    doc.used_for="Email Verification"
     doc.expires_on = expires_on
     doc.insert(ignore_permissions=True)
 
@@ -44,7 +45,7 @@ def verify_otp(email, otp):
     # Check if OTP has expired in DB
     otp_doc = frappe.get_all(
         "OTP Verification",
-        filters={"email": email, "otp": otp},
+        filters={"email": email, "otp": otp,"used_for":"Email Verification"},
         fields=["name", "expires_on"],
         order_by="creation desc",
         limit=1
@@ -59,3 +60,53 @@ def verify_otp(email, otp):
     # OTP is valid
     frappe.cache().delete_value(f"otp:{email}")
     return {"message": "OTP verified successfully."}
+
+
+
+import random
+import string
+from frappe.utils import now_datetime, add_to_date
+
+OTP_EXPIRY_MINUTES = 5
+
+def generate_otp():
+    return ''.join(random.choices(string.digits, k=6))
+
+@frappe.whitelist(allow_guest=True)
+def send_signup_otp(email):
+    otp = generate_otp()
+    expiry = add_to_date(now_datetime(), minutes=OTP_EXPIRY_MINUTES)
+
+    frappe.db.delete("OTP Verification", {"email": email,"used_for":"Sign Up"})  # Optional: Remove previous OTP
+    doc = frappe.get_doc({
+        "doctype": "OTP Verification",
+        "email": email,
+        "otp": otp,
+        "used_for":"Sign Up",
+        "expires_on": expiry,
+        "is_verified": 0
+    })
+    doc.insert(ignore_permissions=True)
+
+    # frappe.sendmail(
+    #     recipients=email,
+    #     subject="Your Signup OTP",
+    #     message=f"Your OTP is <b>{otp}</b>. It is valid for {OTP_EXPIRY_MINUTES} minutes."
+    # )
+
+    return {"message": {"status": "success", "message": "OTP sent"}}
+
+@frappe.whitelist(allow_guest=True)
+def verify_signup_otp(email, otp):
+    record = frappe.db.get_value("OTP Verification", {"email": email, "otp": otp, "is_verified": 0,"used_for":"Sign Up"}, ["name", "expires_on"])
+
+    if not record:
+        return {"message": {"status": "failed", "message": "Invalid or expired OTP"}}
+
+    name, expiry = record
+    if now_datetime() > expiry:
+        return {"message": {"status": "failed", "message": "OTP expired"}}
+
+    frappe.db.set_value("OTP Verification", name, "is_verified", 1)
+    return {"message": {"status": "success", "message": "OTP verified"}}
+
