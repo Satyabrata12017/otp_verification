@@ -16,15 +16,39 @@ def send_otp(email):
     doc = frappe.new_doc("OTP Verification")
     doc.email = email
     doc.otp = otp
-    doc.used_for="Email Verification"
+    doc.used_for = "Email Verification"
     doc.expires_on = expires_on
     doc.insert(ignore_permissions=True)
 
     # Cache OTP for quick access
     frappe.cache().set_value(f"otp:{email}", otp, expires_in_sec=300)
 
-    # For production, use Email/SMS to send OTP
-    # frappe.sendmail(recipients=email, subject="Your OTP", message=f"Your OTP is {otp}")
+    # Try to get subject & message from Notification
+    notification = frappe.get_all(
+        "Notification",
+        filters={
+            "enabled": 1,
+            "document_type": "OTP Verification",
+        },
+        fields=["name", "subject", "message"],
+        limit=1
+    )
+
+    if notification:
+        notif = notification[0]
+        subject = frappe.render_template(notif.subject, {"doc": doc})
+        message = frappe.render_template(notif.message, {"doc": doc})
+    else:
+        # Fallback
+        subject = "Your OTP"
+        message = f"Your OTP is <b>{otp}</b>. It is valid for 5 minutes."
+
+    # Send OTP via email
+    frappe.sendmail(
+        recipients=email,
+        subject=subject,
+        message=message
+    )
 
     return {"message": "OTP sent."}
 
@@ -77,24 +101,49 @@ def send_signup_otp(email):
     otp = generate_otp()
     expiry = add_to_date(now_datetime(), minutes=OTP_EXPIRY_MINUTES)
 
-    frappe.db.delete("OTP Verification", {"email": email,"used_for":"Sign Up"})  # Optional: Remove previous OTP
+    # Optional: Remove previous OTP
+    frappe.db.delete("OTP Verification", {"email": email, "used_for": "Sign Up"})
+
+    # Create OTP Verification doc
     doc = frappe.get_doc({
         "doctype": "OTP Verification",
         "email": email,
         "otp": otp,
-        "used_for":"Sign Up",
+        "used_for": "Sign Up",
         "expires_on": expiry,
         "is_verified": 0
     })
     doc.insert(ignore_permissions=True)
 
-    # frappe.sendmail(
-    #     recipients=email,
-    #     subject="Your Signup OTP",
-    #     message=f"Your OTP is <b>{otp}</b>. It is valid for {OTP_EXPIRY_MINUTES} minutes."
-    # )
+    # Fetch Notification template
+    notification = frappe.get_all(
+        "Notification",
+        filters={
+            "enabled": 1,
+            "document_type": "OTP Verification"
+        },
+        fields=["name", "subject", "message"],
+        limit=1
+    )
+
+    if notification:
+        notif = notification[0]
+        subject = frappe.render_template(notif.subject, {"doc": doc})
+        message = frappe.render_template(notif.message, {"doc": doc})
+    else:
+        # Fallback message if no notification is set
+        subject = "Your Signup OTP"
+        message = f"Your OTP is <b>{otp}</b>. It is valid for {OTP_EXPIRY_MINUTES} minutes."
+
+    # Send the email
+    frappe.sendmail(
+        recipients=email,
+        subject=subject,
+        message=message
+    )
 
     return {"message": {"status": "success", "message": "OTP sent"}}
+
 
 @frappe.whitelist(allow_guest=True)
 def verify_signup_otp(email, otp):
