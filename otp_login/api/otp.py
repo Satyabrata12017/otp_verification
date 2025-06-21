@@ -3,6 +3,22 @@ import random
 from frappe import _
 from frappe.utils import now_datetime, add_to_date
 
+@frappe.whitelist(allow_guest=True)
+def get_notification_docs():
+    """
+    Fetch the list of Notification Docs from Digital Insights Settings.
+
+    Returns:
+        list: List of selected Notification Doc names (strings).
+    """
+    try:
+        doc = frappe.get_single("Digital Insights Settings")
+        return doc.notification_doc or []
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Error fetching notification_doc")
+        frappe.throw(f"Error fetching data: {e}")
+
+
 
 @frappe.whitelist(allow_guest=True)
 def send_otp(email):
@@ -24,10 +40,10 @@ def send_otp(email):
     frappe.cache().set_value(f"otp:{email}", otp, expires_in_sec=300)
 
     # Try to get subject & message from Notification
+    
     notification = frappe.get_all(
         "Notification",
         filters={
-            "enabled": 1,
             "document_type": "OTP Verification",
         },
         fields=["name", "subject", "message"],
@@ -44,13 +60,14 @@ def send_otp(email):
         message = f"Your OTP is <b>{otp}</b>. It is valid for 5 minutes."
 
     # Send OTP via email
-    frappe.sendmail(
-        recipients=email,
-        subject=subject,
-        message=message
-    )
+    if "OTP Verification" in get_notification_docs():
+        frappe.sendmail(
+            recipients=email,
+            subject=subject,
+            message=message
+        )
 
-    return {"message": "OTP sent."}
+        return {"message": "OTP sent."}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -136,13 +153,14 @@ def send_signup_otp(email):
         message = f"Your OTP is <b>{otp}</b>. It is valid for {OTP_EXPIRY_MINUTES} minutes."
 
     # Send the email
-    frappe.sendmail(
-        recipients=email,
-        subject=subject,
-        message=message
-    )
+    if "OTP Verification" in get_notification_docs():
+        frappe.sendmail(
+            recipients=email,
+            subject=subject,
+            message=message
+        )
 
-    return {"message": {"status": "success", "message": "OTP sent"}}
+        return {"message": {"status": "success", "message": "OTP sent"}}
 
 
 @frappe.whitelist(allow_guest=True)
