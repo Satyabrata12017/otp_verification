@@ -13,7 +13,8 @@ def get_notification_docs():
     """
     try:
         doc = frappe.get_single("Digital Insights Settings")
-        return doc.notification_doc or []
+        doc_list = [item.notification_doc for item in doc.notification_doc]
+        return doc_list or []
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Error fetching notification_doc")
         frappe.throw(f"Error fetching data: {e}")
@@ -161,6 +162,9 @@ def send_signup_otp(email):
         )
 
         return {"message": {"status": "success", "message": "OTP sent"}}
+    else:
+        frappe.log_error("Notification not found", "OTP Verification")
+        return {"message": {"status": "failed", "message": "Please contact admin"}}
 
 
 @frappe.whitelist(allow_guest=True)
